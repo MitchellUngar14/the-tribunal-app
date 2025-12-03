@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Ensure TRIBUNAL_API_KEY is set in backend/.env file
-# Example: TRIBUNAL_API_KEY="AIzaSyBd5a8zYm3OTkc-tKPWwlhzTyaBdoXlcRk"
 
 echo "Starting Tribunal Backend..."
 npm --prefix "backend" run dev &
