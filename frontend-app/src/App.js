@@ -40,6 +40,8 @@ function App() {
   // Fetch agents and models from backend on component mount
   useEffect(() => {
     const fetchAgents = async () => {
+      setAllAgents([]); // Clear agents before fetching
+      setSelectedAgents([]); // Clear selected agents before fetching
       try {
         // Fetch agents
         const agentsResponse = await fetch(`${backendUrl}/api/agents`);
