@@ -20,7 +20,7 @@ let currentGenerativeModel;
 let agentDefinitions = []; // To store loaded agent definitions
 
 async function loadAgentDefinitions() {
-  const agentsPath = path.join(__dirname, '..', 'AI Playpen Vault', 'Tribunal');
+  const agentsPath = path.join(__dirname, '..', 'agents');
   try {
     const files = await fs.readdir(agentsPath);
     const agentFiles = files.filter(file => file.endsWith('.md'));
@@ -251,7 +251,7 @@ app.post('/api/generate-context-file', async (req, res) => {
     return res.status(400).json({ error: 'Content is required to generate a context file.' });
   }
 
-  const tribunalPlansDir = path.join(__dirname, '..', 'AI Playpen Vault', 'Tribunal Plans');
+  const tribunalPlansDir = path.join(__dirname, '..', 'tribunal_plans');
   
   try {
     // Ensure the directory exists

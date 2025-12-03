@@ -18,6 +18,9 @@ frontend-app/yarn-error.log*
 # Git history (if any nested git repos)
 .git/
 
+# AI Playpen Vault (explicitly excluded)
+AI Playpen Vault/
+
 # OS and IDE specific files
 .DS_Store
 Thumbs.db
