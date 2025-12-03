@@ -109,25 +109,22 @@ function App() {
     return null;
   }, [messages]);
 
-  const handleGenerateContextFile = async (tribunalResponseText) => {
+  const handleGenerateContextFile = (tribunalResponseText) => {
     try {
-      const response = await fetch(`${backendUrl}/api/generate-context-file`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content: tribunalResponseText }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      alert(`Context file generated: ${data.filePath}`);
+      const filename = `Tribunal_Recommendation_${new Date().toISOString().replace(/[:.]/g, '-')}.md`;
+      const blob = new Blob([tribunalResponseText], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      alert(`Context file "${filename}" downloaded to your device.`);
     } catch (error) {
-      console.error('Error generating context file:', error);
-      alert('Error generating context file. Check console for details.');
+      console.error('Error generating or downloading context file:', error);
+      alert('Error generating or downloading context file. Check console for details.');
     }
   };
 
