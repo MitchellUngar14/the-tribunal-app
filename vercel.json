@@ -3,7 +3,8 @@
   "builds": [
     {
       "src": "backend/server.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": { "includeFiles": ["AI Playpen Vault/**"] }
     },
     {
       "src": "frontend-app/package.json",
@@ -12,14 +13,13 @@
     }
   ],
   "routes": [
-    { "src": "/", "dest": "frontend-app/build/index.html" },
     {
       "src": "/api/(.*)",
       "dest": "backend/server.js"
     },
     {
       "src": "/(.*)",
-      "dest": "frontend-app/build/$1"
+      "dest": "frontend-app/$1"
     }
   ]
 }
