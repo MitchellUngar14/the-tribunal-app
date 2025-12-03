@@ -21,8 +21,10 @@ let agentDefinitions = []; // To store loaded agent definitions
 
 async function loadAgentDefinitions() {
   const agentsPath = path.join(__dirname, '..', 'agents');
+  console.log(`Attempting to load agent definitions from: ${agentsPath}`);
   try {
     const files = await fs.readdir(agentsPath);
+    console.log(`Files found in agents directory: ${files}`);
     const agentFiles = files.filter(file => file.endsWith('.md'));
 
     for (const file of agentFiles) {
@@ -30,9 +32,8 @@ async function loadAgentDefinitions() {
       const content = await fs.readFile(filePath, 'utf8');
 
       const nameMatch = content.match(/# Agent: (.*)/);
-      // Adjusted to capture multiple lines for personality and role
-      const personalityRoleMatch = content.match(/## Personality & Role\n\n([\s\S]*?)\n## Core Prompt/); 
-      const corePromptMatch = content.match(/## Core Prompt\n\n\"(.*?)\"/s);
+      const personalityRoleMatch = content.match(/## Personality & Role\s*[\r\n]+([\s\S]*?)[\r\n]+## Core Prompt/); 
+      const corePromptMatch = content.match(/## Core Prompt\s*[\r\n]+([\s\S]*)/); // Revised regex for core prompt
       const categoryMatch = content.match(/Category: (.*)/);
 
 
@@ -52,8 +53,8 @@ async function loadAgentDefinitions() {
   }
 }
 
-// Load agent definitions on server startup
-loadAgentDefinitions();
+
+
 
 const app = express();
 const port = 3001; // Backend will run on port 3001
@@ -218,9 +219,7 @@ app.post('/api/tribunal-chat', async (req, res) => {
 
   // Construct context for the General Project Manager
   const synthesisContext = `User's original question: "${userQuestion}"\n\n` +
-    `Here are the refined responses from the specialist agents. These might be summarized or refined versions of their initial thoughts, and your task is to take these and *expand* upon them to form a single, cohesive, and actionable plan or summary that addresses the user's original question:\n\n---\n` +
-    finalAgentResponses.map((r) => `${r.agent}:\n${r.text}`).join('\n\n') + 
-    `\n---\n\nBased on these refined insights, provide a single, comprehensive, and clear plan of action or summary. Integrate all relevant specialist insights, and outline the steps that need to be taken to address the user's original goal. Prioritize clarity, conciseness, and actionability in the final plan.`;
+    `Here are the refined responses from the specialist agents. These might be summarized or refined versions of their initial thoughts, and your task is to take these and *expand* upon them to form a single, cohesive, and actionable plan or summary that addresses the user's original question, integrating all relevant insights from the specialists.`;
 
   console.log('Invoking General Project Manager for final synthesis...');
   const finalSummary = await invokeAgent(
@@ -276,7 +275,20 @@ module.exports = app;
 
 // Start the server only if not in a Vercel environment
 if (!process.env.VERCEL_ENV) {
-  app.listen(port, () => {
-    console.log(`Tribunal Backend listening at http://localhost:${port}`);
-  });
+  (async () => {
+    console.log('Local server starting: Awaiting agent definitions...');
+    await loadAgentDefinitions(); // Await here for local execution
+    console.log('Local server starting: Agent definitions loaded.');
+    app.listen(port, () => {
+      console.log(`Tribunal Backend listening at http://localhost:${port}`);
+    });
+  })();
+} else {
+  // For Vercel, ensure loadAgentDefinitions is called before module.exports is fully evaluated
+  // This top-level await will run once during Vercel's build process
+  (async () => {
+    console.log('Vercel environment: Awaiting agent definitions for serverless function...');
+    await loadAgentDefinitions();
+    console.log('Vercel environment: Agent definitions loaded for serverless function.');
+  })();
 }
