@@ -32,8 +32,10 @@ async function loadAgentDefinitions() {
       const content = await fs.readFile(filePath, 'utf8');
 
       const nameMatch = content.match(/# Agent: (.*)/);
-      const personalityRoleMatch = content.match(/## Personality & Role\s*[\r\n]+([\s\S]*?)[\r\n]+## Core Prompt/); 
-      const corePromptMatch = content.match(/## Core Prompt\s*[\r\n]+([\s\S]*)/); // Revised regex for core prompt
+      // More robust personalityRoleMatch
+      const personalityRoleMatch = content.match(/## Personality & Role\s*[\r\n]+([\s\S]*?)(?=[\r\n]+## Core Prompt)/); 
+      // More robust corePromptMatch to capture content within quotes
+      const corePromptMatch = content.match(/## Core Prompt\s*[\r\n]+\s*"([\s\S]*?)"/); 
       const categoryMatch = content.match(/Category: (.*)/);
 
 
@@ -137,105 +139,116 @@ async function invokeAgent(agent, userQuestion, generativeModel, sharedContext =
 }
 
 // Endpoint for Tribunal chat
+// Endpoint for Tribunal chat (SSE Streaming)
 app.post('/api/tribunal-chat', async (req, res) => {
   const userQuestion = req.body.question;
   const selectedAgentsNames = req.body.selectedAgents || [];
-  const selectedModelName = req.body.selectedModel; // Get selected model name from request body
+  const selectedModelName = req.body.selectedModel;
 
   if (!userQuestion) {
     return res.status(400).json({ error: 'Question is required.' });
   }
   if (selectedAgentsNames.length === 0) {
-    return res.json({ responses: [{ agent: 'System', text: 'No agents selected to respond.' }] });
+    return res.status(400).json({ error: 'No agents selected to respond.' });
   }
   if (!selectedModelName) {
     return res.status(400).json({ error: 'Generative model is required.' });
   }
 
-  // Initialize the model with the selected name
-  currentGenerativeModel = genAI.getGenerativeModel({ model: selectedModelName });
+  // Set SSE Headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*'); // Or restrict to specific frontend URL
 
-  console.log('Received question:', userQuestion);
-  console.log('Selected agents:', selectedAgentsNames);
-  console.log('Selected model:', selectedModelName);
+  // Send a signal that the connection is open
+  res.write(`event: connected\ndata: ${JSON.stringify({ message: 'Connected to Tribunal stream.' })}\n\n`);
 
-  const agentsToInvoke = agentDefinitions.filter(
-    agent => selectedAgentsNames.includes(agent.name) && agent.name !== 'General Project Manager'
-  );
+  // Handle client disconnect
+  req.on('close', () => {
+    console.log('Client disconnected from SSE stream');
+    res.end();
+  });
 
-  const refinementRounds = 2; // Number of times agents refine their responses
-  let currentResponses = new Map(); // Map agentName to its current response
+  try {
+    // Initialize the model with the selected name
+    currentGenerativeModel = genAI.getGenerativeModel({ model: selectedModelName });
 
-  // --- Initial Response Generation ---
-  const initialResponsesArray = await Promise.all(
-    agentsToInvoke.map(async (agent) => {
+    console.log('Received question:', userQuestion);
+    console.log('Selected agents:', selectedAgentsNames);
+    console.log('Selected model:', selectedModelName);
+
+    const agentsToInvoke = agentDefinitions.filter(
+      agent => selectedAgentsNames.includes(agent.name) && agent.name !== 'General Project Manager'
+    );
+
+    const refinementRounds = 2;
+    let currentResponses = new Map();
+
+    // --- Initial Response Generation ---
+    for (const agent of agentsToInvoke) {
       const responseText = await invokeAgent(agent, userQuestion, currentGenerativeModel, '', false);
       currentResponses.set(agent.name, responseText);
-      return { agent: agent.name, text: responseText, round: 0 };
-    })
-  );
+      res.write(`event: agentResponse\ndata: ${JSON.stringify({ agent: agent.name, text: responseText, isInitial: true })}\n\n`);
+    }
 
-  // --- Iterative Refinement Loop ---
-  let allRoundResponses = [...initialResponsesArray]; // To keep track of responses per round
-  for (let round = 1; round <= refinementRounds; round++) {
-    console.log(`--- Refinement Round ${round} ---`);
-    const MAX_AGENT_RESPONSE_LENGTH_FOR_CONTEXT = 500; // Characters
+    // --- Iterative Refinement Loop ---
+    for (let round = 1; round <= refinementRounds; round++) {
+      console.log(`--- Refinement Round ${round} ---`);
+      const MAX_AGENT_RESPONSE_LENGTH_FOR_CONTEXT = 500;
 
-    const sharedContext = Array.from(currentResponses.entries())
-      .map(([agentName, text]) => {
-        const truncatedText = text.length > MAX_AGENT_RESPONSE_LENGTH_FOR_CONTEXT 
-          ? text.substring(0, MAX_AGENT_RESPONSE_LENGTH_FOR_CONTEXT) + '... (truncated)'
-          : text;
-        return `${agentName}:\n${truncatedText}`;
-      })
-      .join('\n\n');
+      const sharedContext = Array.from(currentResponses.entries())
+        .map(([agentName, text]) => {
+          const truncatedText = text.length > MAX_AGENT_RESPONSE_LENGTH_FOR_CONTEXT 
+            ? text.substring(0, MAX_AGENT_RESPONSE_LENGTH_FOR_CONTEXT) + '... (truncated)'
+            : text;
+          return `${agentName}:\n${truncatedText}`;
+        })
+        .join('\n\n');
 
-    const nextRoundResponses = await Promise.all(
-      agentsToInvoke.map(async (agent) => {
+      for (const agent of agentsToInvoke) {
         const responseText = await invokeAgent(agent, userQuestion, currentGenerativeModel, sharedContext, true);
-        currentResponses.set(agent.name, responseText); // Update response for next round
-        return { agent: agent.name, text: responseText, round: round };
-      })
+        currentResponses.set(agent.name, responseText);
+        res.write(`event: agentResponse\ndata: ${JSON.stringify({ agent: agent.name, text: responseText, isRefinement: true, round: round })}\n\n`);
+      }
+    }
+
+    // --- Final Synthesis by General Project Manager ---
+    const finalAgentResponses = Array.from(currentResponses.entries()).map(([agentName, text]) => ({
+      agent: agentName,
+      text: text,
+    }));
+
+    const generalProjectManager = agentDefinitions.find(
+      (agent) => agent.name === 'General Project Manager'
     );
-    allRoundResponses.push(...nextRoundResponses);
+
+    if (!generalProjectManager) {
+      res.write(`event: error\ndata: ${JSON.stringify({ message: 'General Project Manager agent not found in definitions.' })}\n\n`);
+      return res.end();
+    }
+
+    const synthesisContext = `User's original question: "${userQuestion}"\n\n` +
+      `Here are the refined responses from the specialist agents. These might be summarized or refined versions of their initial thoughts, and your task is to take these and *expand* upon them to form a single, cohesive, and actionable plan or summary that addresses the user's original question, integrating all relevant insights from the specialists.`;
+
+    console.log('Invoking General Project Manager for final synthesis...');
+    const finalSummary = await invokeAgent(
+      generalProjectManager,
+      userQuestion,
+      currentGenerativeModel,
+      synthesisContext,
+      true
+    );
+
+    res.write(`event: finalSummary\ndata: ${JSON.stringify({ agent: 'The Tribunal', text: finalSummary, isSummary: true })}\n\n`);
+    res.write(`event: complete\ndata: ${JSON.stringify({ message: 'Stream completed.' })}\n\n`);
+    res.end();
+
+  } catch (error) {
+    console.error('Error during Tribunal chat stream:', error);
+    res.write(`event: error\ndata: ${JSON.stringify({ message: 'An error occurred during processing.', error: error.message })}\n\n`);
+    res.end();
   }
-
-  // Filter to get only the final responses for each agent after refinement rounds
-  const finalAgentResponses = Array.from(currentResponses.entries()).map(([agentName, text]) => ({
-    agent: agentName,
-    text: text,
-  }));
-
-  // Identify the General Project Manager
-  const generalProjectManager = agentDefinitions.find(
-    (agent) => agent.name === 'General Project Manager'
-  );
-
-  if (!generalProjectManager) {
-    return res.status(500).json({
-      error: 'General Project Manager agent not found in definitions.',
-    });
-  }
-
-  // Construct context for the General Project Manager
-  const synthesisContext = `User's original question: "${userQuestion}"\n\n` +
-    `Here are the refined responses from the specialist agents. These might be summarized or refined versions of their initial thoughts, and your task is to take these and *expand* upon them to form a single, cohesive, and actionable plan or summary that addresses the user's original question, integrating all relevant insights from the specialists.`;
-
-  console.log('Invoking General Project Manager for final synthesis...');
-  const finalSummary = await invokeAgent(
-    generalProjectManager,
-    userQuestion,
-    currentGenerativeModel,
-    synthesisContext,
-    true // Treat as a refinement round for the GPM
-  );
-
-  res.json({
-    responses: [
-      ...finalAgentResponses, // Include all individual agent responses
-      { agent: 'The Tribunal', text: finalSummary, isSummary: true }, // Mark the summary explicitly
-    ],
-  });
 });
 
 // Endpoint to list agents (for potential future use or debugging)
