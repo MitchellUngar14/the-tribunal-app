@@ -130,85 +130,44 @@ function App() {
     }
   };
 
-  const handleSend = () => { // Changed to non-async as EventSource is event-driven
+  const handleSend = async () => {
     if (input.trim()) {
-      const userQuestion = input.trim();
-      setMessages((prevMessages) => [...prevMessages, { text: userQuestion, sender: 'user' }]);
+      const userMessage = { text: input, sender: 'user' };
+      setMessages((prevMessages) => [...prevMessages, userMessage]);
       setInput('');
       setLoading(true);
 
-      const queryParams = new URLSearchParams({
-        question: userQuestion,
-        selectedAgents: JSON.stringify(selectedAgents),
-        selectedModel: selectedModel,
-      }).toString();
-
-      const eventSource = new EventSource(`${backendUrl}/api/tribunal-chat?${queryParams}`);
-
-      eventSource.onopen = (event) => {
-        console.log('SSE connection opened:', event);
-      };
-
-      eventSource.onmessage = (event) => {
-        // Generic message listener, often not used if specific event types are handled
-        console.log('SSE message:', event.data);
-      };
-
-      eventSource.addEventListener('agentResponse', (event) => {
-        const data = JSON.parse(event.data);
-        setMessages((prevMessages) => {
-          // Check if this agent's response is already being updated
-          const existingMessageIndex = prevMessages.findIndex(
-            (msg) => msg.agentName === data.agent && !msg.isSummary && msg.sender === 'agent' && !data.round // Target initial response
-          );
-          if (existingMessageIndex > -1) {
-            // Update existing message
-            const newMessages = [...prevMessages];
-            newMessages[existingMessageIndex] = {
-              ...newMessages[existingMessageIndex],
-              text: `**${data.agent}:** ${data.text}`, // Update text
-            };
-            return newMessages;
-          } else {
-            // Add new message
-            return [
-              ...prevMessages,
-              {
-                text: `**${data.agent}:** ${data.text}`,
-                sender: 'agent',
-                agentName: data.agent,
-                isInitial: data.isInitial,
-                isRefinement: data.isRefinement,
-                round: data.round,
-              },
-            ];
-          }
+      try {
+        const response = await fetch(`${backendUrl}/api/tribunal-chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ question: userMessage.text, selectedAgents, selectedModel }), // Send selectedModel
         });
-      });
 
-      eventSource.addEventListener('finalSummary', (event) => {
-        const data = JSON.parse(event.data);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        // Assuming data.responses is an array of { agent: string, text: string, isSummary?: boolean }
+        const allNewMessages = data.responses.map(res => ({
+          text: `**${res.agent}:** ${res.text}`,
+          sender: 'agent',
+          agentName: res.agent,
+          isSummary: res.isSummary || false, // Capture isSummary flag
+        }));
+        setMessages((prevMessages) => [...prevMessages, ...allNewMessages]);
+      } catch (error) {
+        console.error('Error sending message:', error);
         setMessages((prevMessages) => [
           ...prevMessages,
-          { text: `**${data.agent}:** ${data.text}`, sender: 'agent', agentName: data.agent, isSummary: true },
+          { text: 'Error: Could not get a response from the Tribunal.', sender: 'agent' },
         ]);
-      });
-
-      eventSource.addEventListener('complete', (event) => {
-        console.log('SSE stream completed:', event.data);
+      } finally {
         setLoading(false);
-        eventSource.close();
-      });
-
-      eventSource.onerror = (error) => {
-        console.error('SSE Error:', error);
-        setLoading(false);
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          { text: 'Error: An error occurred during the Tribunal process.', sender: 'agent' },
-        ]);
-        eventSource.close();
-      };
+      }
     }
   };
 
