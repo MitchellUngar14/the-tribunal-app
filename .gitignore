@@ -1,0 +1,32 @@
+# Git ignore for The Tribunal project
+
+# Node.js artifacts
+node_modules/
+backend/node_modules/
+frontend-app/node_modules/
+
+# Environment variables
+.env
+backend/.env
+
+# Build output
+frontend-app/build/
+frontend-app/npm-debug.log*
+frontend-app/yarn-debug.log*
+frontend-app/yarn-error.log*
+
+# Git history (if any nested git repos)
+.git/
+
+# AI Playpen Vault (explicitly excluded at the parent level)
+../AI Playpen Vault/
+
+# OS and IDE specific files
+.DS_Store
+Thumbs.db
+.vscode/
+*.iml
+.idea/
+
+# Claude Code
+CLAUDE.md

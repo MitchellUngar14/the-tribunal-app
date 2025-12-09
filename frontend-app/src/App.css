@@ -1,0 +1,366 @@
+body {
+  margin: 0;
+  font-family: 'Consolas', 'Menlo', 'Monaco', 'Lucida Console', 'Liberation Mono', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Courier New', monospace;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #1a1a2e; /* Dark background */
+  color: #e0e0e0; /* Light text for dark mode */
+}
+
+/* Overall App layout */
+.App {
+  display: flex; /* Use flexbox to lay out sidebar and main content */
+  min-height: 100vh;
+  width: 100vw; /* Take full viewport width */
+  background-color: #1a1a2e;
+  color: #e0e0e0;
+  overflow: hidden; /* Prevent body scroll */
+}
+
+/* Sidebar is defined in Sidebar.css */
+
+/* Main Content Area */
+.main-content {
+  flex-grow: 1; /* Take remaining space */
+  display: flex;
+  flex-direction: column;
+  height: 100vh; /* Fill vertical space */
+  box-sizing: border-box; /* Include padding in element's total width and height */
+  align-items: center; /* Center chat content horizontally */
+  padding: 10px; /* Reduced padding for mobile */
+  width: 100%; /* Default to full width on mobile */
+  transition: transform 0.3s ease-in-out; /* For sliding effect on mobile */
+}
+
+/* Header within main content */
+.app-header {
+  width: 100%;
+  max-width: 95%; /* Use percentage for better responsiveness */
+  background-color: #0f3460;
+  padding: 15px 20px;
+  border-bottom: 1px solid #0f3460;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  text-align: left;
+  border-radius: 12px 12px 0 0; /* Apply to header only */
+  margin-top: 10px; /* Reduced margin */
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap; /* Allow items to wrap on smaller screens */
+  justify-content: space-between; /* Distribute items */
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.5em; /* Smaller font for mobile */
+  color: #5d9cec;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  flex-grow: 1; /* Allow h1 to take available space */
+}
+
+.sidebar-toggle-btn {
+  background: none;
+  border: none;
+  font-size: 1.5em;
+  color: #e0e0e0;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0; /* Prevent button from shrinking */
+}
+
+.sidebar-toggle-btn:hover {
+  color: #5d9cec;
+}
+
+/* Styles for the "Show individual responses" checkbox */
+.toggle-individual-responses {
+  display: flex;
+  align-items: center;
+  margin-left: auto; /* Push to the right, after h1 */
+  color: #e0e0e0;
+  gap: 5px;
+  flex-shrink: 0; /* Prevent from shrinking */
+}
+
+.toggle-individual-responses label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 0.8em;
+}
+
+.toggle-individual-responses input[type="checkbox"] {
+  margin-right: 8px;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #5d9cec;
+  border-radius: 3px;
+  background-color: #16213e;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.toggle-individual-responses input[type="checkbox"]:checked {
+  background-color: #5d9cec;
+  border-color: #5d9cec;
+}
+
+.toggle-individual-responses input[type="checkbox"]:checked::before {
+  content: '✔';
+  font-size: 10px;
+  color: #1a1a2e;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+
+/* Styles for the Model Selector dropdown */
+.model-selector {
+  display: flex;
+  align-items: center;
+  margin-left: 15px; /* Add some space from the checkbox */
+  gap: 10px;
+  color: #e0e0e0;
+  flex-shrink: 0; /* Prevent from shrinking */
+}
+
+.model-selector label {
+  font-size: 0.8em;
+}
+
+.model-selector select {
+  background-color: #16213e;
+  color: #e0e0e0;
+  border: 1px solid #0f3460;
+  border-radius: 5px;
+  padding: 5px 8px;
+  font-size: 0.8em;
+  cursor: pointer;
+  appearance: none; /* Remove default arrow */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23e0e0e0%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); /* Custom arrow */
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 10px;
+  padding-right: 25px; /* Make space for the arrow */
+}
+
+.model-selector select:focus {
+  outline: none;
+  border-color: #5d9cec;
+}
+
+
+/* Chat Container */
+.chat-container {
+  flex: 1; /* Take all available vertical space */
+  width: 100%;
+  max-width: 95%; /* Use percentage for better responsiveness */
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #0f3460;
+  border-radius: 0 0 12px 12px; /* Apply to chat-container only */
+  overflow: hidden; /* Important for scroll */
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+  background-color: #0f3460;
+  margin-top: -1px; /* Overlap border with header */
+  /* Removed margin-bottom, now handled by main-content padding */
+}
+
+.messages-display {
+  flex-grow: 1;
+  padding: 20px;
+  overflow-y: auto; /* Internal scrollbar */
+  border-bottom: 1px solid #16213e;
+  background-color: #16213e;
+}
+
+/* Scrollbar styling for a cleaner look */
+.messages-display::-webkit-scrollbar {
+  width: 8px;
+}
+
+.messages-display::-webkit-scrollbar-track {
+  background: #1a1a2e;
+}
+
+.messages-display::-webkit-scrollbar-thumb {
+  background-color: #0f3460;
+  border-radius: 4px;
+}
+
+.message {
+  margin-bottom: 12px;
+  padding: 10px 15px;
+  border-radius: 18px;
+  max-width: 85%; /* Slightly wider for mobile */
+  word-wrap: break-word;
+  line-height: 1.5;
+}
+
+.message.user {
+  background-color: #3e2f5b;
+  color: #e0e0e0;
+  align-self: flex-end;
+  margin-left: auto;
+  border-bottom-right-radius: 4px;
+}
+
+/* Agent-specific colors */
+.message.agent {
+  color: #e0e0e0;
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+
+.message.agent.general-project-manager { background-color: #4a4e69; }
+.message.agent.python-specialist { background-color: #3b5998; }
+.message.agent.frontend-specialist { background-color: #007bff; }
+.message.agent.database-specialist { background-color: #4CAF50; }
+.message.agent.java-specialist { background-color: #D32F2F; }
+.message.agent.java-spring-specialist { background-color: #8BC34A; }
+.message.agent.javascript-specialist { background-color: #F7DF1E; color: #333;}
+.message.agent.react-specialist { background-color: #61DAFB; color: #333;}
+.message.agent.postgres-specialist { background-color: #336791; }
+.message.agent.postgresql-specialist { background-color: #336791; }
+.message.agent.dynamodb-specialist { background-color: #FF9900; color: #333;}
+.message.agent.mssql-specialist { background-color: #B00020; }
+.message.agent.backend-specialist { background-color: #6c757d; } /* Gray */
+
+.input-area {
+  display: flex;
+  padding: 10px; /* Reduced padding for mobile */
+  border-top: 1px solid #0f3460;
+  background-color: #1a1a2e;
+}
+
+.input-area input {
+  flex-grow: 1;
+  padding: 10px;
+  border: 1px solid #0f3460;
+  border-radius: 20px;
+  margin-right: 10px;
+  font-size: 1em;
+  background-color: #16213e;
+  color: #e0e0e0;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.input-area input:focus {
+  outline: none;
+  border-color: #5d9cec;
+}
+
+.input-area button {
+  background-color: #5d9cec;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 10px 20px;
+  font-size: 1em;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.input-area button:hover {
+  background-color: #4a8ed9;
+  transform: translateY(-1px);
+}
+
+.input-area button:disabled {
+  background-color: #34495e;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.generate-context-area {
+  width: 100%;
+  max-width: 95%; /* Match chat-container max-width */
+  padding: 10px 20px 20px; /* Adjust padding for spacing */
+  background-color: #0f3460; /* Match chat-container background */
+  border-radius: 0 0 12px 12px; /* Bottom corners rounded */
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3); /* Shadow to separate from chat */
+  display: flex;
+  justify-content: center;
+  margin-top: -1px; /* Overlap border */
+}
+
+.generate-context-area button {
+  background-color: #28a745; /* Green color for generate action */
+  color: white;
+  border: none;
+  border-radius: 25px;
+  padding: 12px 25px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  width: 100%; /* Make button fill area */
+  max-width: 300px; /* Max width for button */
+}
+
+.generate-context-area button:hover {
+  background-color: #218838; /* Darker green on hover */
+  transform: translateY(-1px);
+}
+
+@media (max-width: 767px) {
+  .app-header {
+    flex-direction: column;
+    align-items: flex-start; /* Left-justify items in column */
+  }
+
+  .toggle-individual-responses {
+    margin-left: 0; /* Remove auto margin to left-justify */
+    margin-top: 10px; /* Add some space below the title */
+  }
+
+  .model-selector {
+    margin-left: 0; /* Remove auto margin to left-justify */
+    margin-top: 10px; /* Add some space below the toggle */
+  }
+}
+
+
+@media (min-width: 768px) {
+  /* Desktop styles */
+  .main-content {
+    padding: 20px;
+    width: calc(100% - 250px);
+    transition: width 0.3s ease-in-out;
+  }
+  
+  .main-content.sidebar-closed {
+    width: calc(100% - 60px);
+  }
+
+  .app-header {
+    max-width: none;
+    font-size: 1.8em;
+  }
+  
+  .chat-container {
+    max-width: none;
+  }
+  
+  .generate-context-area {
+    max-width: none;
+  }
+  
+  .message {
+    max-width: 75%;
+  }
+
+  .input-area input, .input-area button {
+    font-size: 16px;
+    padding: 12px 25px;
+  }
+}
